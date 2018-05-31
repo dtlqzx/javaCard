@@ -1,5 +1,5 @@
 /**
- *
+ *https://github.com/dtlqzx
  */
 package java3des;
 
@@ -108,7 +108,7 @@ public class java3des extends Applet {
 		CipherObj = Cipher.getInstance(Cipher.ALG_DES_CBC_ISO9797_M1, false);
 
 		CipherObj.init(deskey, Cipher.MODE_ENCRYPT);
-		
+
 		CipherObj.doFinal(translation, (short)0, (short)8, translation, (short)8);
 
 		deskey.setKey(keyData1, (short)0);
