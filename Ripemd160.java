@@ -1,3 +1,4 @@
+package Blockchain;
 /*
 *******************************************************************************
 *   Java Card Bitcoin Hardware Wallet
@@ -21,7 +22,6 @@
 /* This file is automatically processed from the .javap version and only included for convenience. Please refer to the .javap file
    for more readable code */
 
-package com.ledger.wallet;
 import javacard.framework.Util;
 public class Ripemd160 {
     public static void hash32(byte[] buffer, short offset, byte[] target, short targetOffset, byte[] scratch, short scratchOffset)

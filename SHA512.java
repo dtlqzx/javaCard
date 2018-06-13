@@ -20,11 +20,10 @@
 
 /* This file is automatically processed from the .javap version and only included for convenience. Please refer to the .javap file
    for more readable code */
-
-package com.ledger.wallet;
+package Blockchain;
 import javacard.framework.JCSystem;
 public class SHA512 {
-  public SHA512() {
+  public SHA512() {//working  put h in it and when SHA512 there are 8*4 short to use, SHA256 8*2 short to use
     working = JCSystem.makeTransientShortArray((short)(2 + 8*4
                                                          ),
                                                  JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT);
@@ -45,9 +44,13 @@ public class SHA512 {
   public void reset() {
     init();
   }
+  
+  
+  
   public void update(byte[] inBuff, short inOffset, short inLength) {
     short blen = working [BLEN];
     short cnt = working[CNT];
+    // --- append input data---
     if ((short)(blen + inLength) >= BLOCK_SIZE) {
       short r = (short)(BLOCK_SIZE - blen);
       load(inBuff, inOffset, r);
@@ -57,6 +60,7 @@ public class SHA512 {
       working[BLEN] = 0;
       cnt++;
     }
+    // --- full input block
     while (inLength >= BLOCK_SIZE) {
       load(inBuff, inOffset, BLOCK_SIZE);
       hashBlock();
@@ -64,7 +68,9 @@ public class SHA512 {
       inOffset += BLOCK_SIZE;
       inLength -= BLOCK_SIZE;
     }
+    // --- store remainder  
     load(inBuff, inOffset, inLength);
+    //save working
     working[BLEN] = inLength;
     working[CNT] = cnt;
   }
@@ -72,11 +78,13 @@ public class SHA512 {
                        byte[] outBuff, short outOffset) {
     update(inBuff,inOffset,inLength);
     zeroFillBlk();
+    //compute bits length: counter * 128 + BLEN*8;  (*128 ~~ << 7)
     short cnt = working[CNT];
     short blen = working[BLEN];
     short bitsLen_H, bitsLen_L;
     bitsLen_H = (short)(cnt>>6);
     bitsLen_L = (short)((cnt<<10) + (blen<<3));
+    //last, with 80 pad and bits length
     short off = (short)(blen>>1);
     if ((blen &1) == 0) {
       blk[off] = (short)0x8000;
@@ -95,6 +103,7 @@ public class SHA512 {
       outBuff[(short)(outOffset+2*i )] = (byte)(working[(short)(H0+i)] >> 8);
       outBuff[(short)(outOffset+2*i+1)] = (byte)(working[(short)(H0+i)] & 0xFF);
     }
+    // reset
     init();
     return getLength();
   }
@@ -108,22 +117,30 @@ public class SHA512 {
       working[(short)(H0+i)] = HINIT[i];
     }
   }
+  /** load inLength bytes
+  *
+  * precond: working[BLEN] +  inLength   <=  64 16bits
+  * @return size of loader block , <= BLOCK_SIZE
+  */
   private void load(byte[] inBuff, short inOffset, short inLength) {
     short blen = working[BLEN];
     short off = (short)(blen>>1);
     if (inLength == 0) return;
+    //missing Low
     if ((blen&1) == 1) {
       blk[off] |= inBuff[inOffset] & 0xff;
       inOffset ++;
       inLength --;
       off++;
     }
+    //adding full 16bits
     while (inLength > 1) {
       blk[off] = (short)((inBuff[inOffset] <<8) | (inBuff[(short)(inOffset+1)] & 0xff));
       inOffset += 2;
       inLength -= 2;
       off ++;
     }
+    //adding last one, and set low part with  zero
     if (inLength > 0) {
       blk[off] = (short)(inBuff[inOffset] <<8);
     }
@@ -139,6 +156,8 @@ public class SHA512 {
       off++;
     }
   }
+  
+  
   static private final short primeSqrt[] = {
     (short)0x428a, (short)0x2f98, (short)0xd728, (short)0xae22,
     (short)0x7137, (short)0x4491, (short)0x23ef, (short)0x65cd,
@@ -245,14 +264,29 @@ public class SHA512 {
   static private final short H6 = 26;
   static private final short H7 = 30;
   static private final short BLK = 34;
+  
+  
   protected static void hashBlock() {
-    short AN1, AN2, AN3, AN4; short BN1, BN2, BN3, BN4; short CN1, CN2, CN3, CN4; short DN1, DN2, DN3, DN4; short EN1, EN2, EN3, EN4; short FN1, FN2, FN3, FN4; short GN1, GN2, GN3, GN4; short HN1, HN2, HN3, HN4;
-    short T1N1, T1N2, T1N3, T1N4; short T2N1, T2N2, T2N3, T2N4; short T3N1, T3N2, T3N3, T3N4; short T4N1, T4N2, T4N3, T4N4; short T5N1, T5N2, T5N3, T5N4; short RN1, RN2, RN3, RN4;
+    short AN1, AN2, AN3, AN4; 
+    short BN1, BN2, BN3, BN4; 
+    short CN1, CN2, CN3, CN4; 
+    short DN1, DN2, DN3, DN4; 
+    short EN1, EN2, EN3, EN4; 
+    short FN1, FN2, FN3, FN4; 
+    short GN1, GN2, GN3, GN4; 
+    short HN1, HN2, HN3, HN4;
+    short T1N1, T1N2, T1N3, T1N4; 
+    short T2N1, T2N2, T2N3, T2N4; 
+    short T3N1, T3N2, T3N3, T3N4; 
+    short T4N1, T4N2, T4N3, T4N4; 
+    short T5N1, T5N2, T5N3, T5N4; 
+    short RN1, RN2, RN3, RN4;
     short adda = (short)0, addb = (short)0;
     short addc, addxl, addxh;
     byte addk;
     short jProc;
     short tmpOff;
+    //copyHash
     AN1 = working[H0]; AN2 = working[(short)(H0 + 1)]; AN3 = working[(short)(H0 + 2)]; AN4 = working[(short)(H0 + 3)];;
     BN1 = working[H1]; BN2 = working[(short)(H1 + 1)]; BN3 = working[(short)(H1 + 2)]; BN4 = working[(short)(H1 + 3)];;
     CN1 = working[H2]; CN2 = working[(short)(H2 + 1)]; CN3 = working[(short)(H2 + 2)]; CN4 = working[(short)(H2 + 3)];;
@@ -261,43 +295,401 @@ public class SHA512 {
     FN1 = working[H5]; FN2 = working[(short)(H5 + 1)]; FN3 = working[(short)(H5 + 2)]; FN4 = working[(short)(H5 + 3)];;
     GN1 = working[H6]; GN2 = working[(short)(H6 + 1)]; GN3 = working[(short)(H6 + 2)]; GN4 = working[(short)(H6 + 3)];;
     HN1 = working[H7]; HN2 = working[(short)(H7 + 1)]; HN3 = working[(short)(H7 + 2)]; HN4 = working[(short)(H7 + 3)];;
-    for (byte j = 0; j<80; j++) {
-      if (j >= 16) {
-        tmpOff = (short)(4*(short)((j-2) & 0xF)); T2N1 = blk[tmpOff]; T2N2 = blk[(short)(tmpOff + 1)]; T2N3 = blk[(short)(tmpOff + 2)]; T2N4 = blk[(short)(tmpOff + 3)];;
-        T3N1 = (short) ( (T2N4>>>3) & (short)8191 | ((short)(T2N3<<(13))) ); T3N2 = (short) ( (T2N1>>>3) & (short)8191 | ((short)(T2N4<<(13))) ); T3N3 = (short) ( (T2N2>>>3) & (short)8191 | ((short)(T2N1<<(13))) ); T3N4 = (short) ( (T2N3>>>3) & (short)8191 | ((short)(T2N2<<(13))) );; T4N1 = (short) ( (T2N2>>>13) & (short)7 | ((short)(T2N1<<(3))) ); T4N2 = (short) ( (T2N3>>>13) & (short)7 | ((short)(T2N2<<(3))) ); T4N3 = (short) ( (T2N4>>>13) & (short)7 | ((short)(T2N3<<(3))) ); T4N4 = (short) ( (T2N1>>>13) & (short)7 | ((short)(T2N4<<(3))) );; T5N1 = (short) ((T2N1>>>6) & (short)1023); T5N2 = (short) ( (T2N2>>>6) & (short)1023 | ((short)(T2N1<<(10))) ); T5N3 = (short) ( (T2N3>>>6) & (short)1023 | ((short)(T2N2<<(10))) ); T5N4 = (short) ( (T2N4>>>6) & (short)1023 | ((short)(T2N3<<(10))) );; T2N1 = (short)(T3N1 ^ T4N1 ^ T5N1); T2N2 = (short)(T3N2 ^ T4N2 ^ T5N2); T2N3 = (short)(T3N3 ^ T4N3 ^ T5N3); T2N4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
-        tmpOff = (short)(4*(short)((j-7) & 0xF)); addb = blk[(short)(tmpOff + 3)]; addxl = (short)((T2N4&0xFF) + (addb&0xFF)); addxh = (short)(((T2N4>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N4 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[(short)(tmpOff + 2)]; addxl = (short)((T2N3&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T2N3>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N3 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[(short)(tmpOff + 1)]; addxl = (short)((T2N2&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T2N2>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N2 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[tmpOff]; addxl = (short)((T2N1&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T2N1>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
-        tmpOff = (short)(4*(short)((j-15) & 0xF)); T1N1 = blk[tmpOff]; T1N2 = blk[(short)(tmpOff + 1)]; T1N3 = blk[(short)(tmpOff + 2)]; T1N4 = blk[(short)(tmpOff + 3)];;
-        T3N1 = (short) ( (T1N1>>>1) & (short)32767 | ((short)(T1N4<<(15))) ); T3N2 = (short) ( (T1N2>>>1) & (short)32767 | ((short)(T1N1<<(15))) ); T3N3 = (short) ( (T1N3>>>1) & (short)32767 | ((short)(T1N2<<(15))) ); T3N4 = (short) ( (T1N4>>>1) & (short)32767 | ((short)(T1N3<<(15))) );; T4N1 = (short) ( (T1N1>>>8) & (short)255 | ((short)(T1N4<<(8))) ); T4N2 = (short) ( (T1N2>>>8) & (short)255 | ((short)(T1N1<<(8))) ); T4N3 = (short) ( (T1N3>>>8) & (short)255 | ((short)(T1N2<<(8))) ); T4N4 = (short) ( (T1N4>>>8) & (short)255 | ((short)(T1N3<<(8))) );; T5N1 = (short) ((T1N1>>>7) & (short)511); T5N2 = (short) ( (T1N2>>>7) & (short)511 | ((short)(T1N1<<(9))) ); T5N3 = (short) ( (T1N3>>>7) & (short)511 | ((short)(T1N2<<(9))) ); T5N4 = (short) ( (T1N4>>>7) & (short)511 | ((short)(T1N3<<(9))) );; T1N1 = (short)(T3N1 ^ T4N1 ^ T5N1); T1N2 = (short)(T3N2 ^ T4N2 ^ T5N2); T1N3 = (short)(T3N3 ^ T4N3 ^ T5N3); T1N4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
-        addxl = (short)((T2N4&0xFF) + (T1N4&0xFF)); addxh = (short)(((T2N4>>>8)&0xFF) + ((T1N4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N4 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T2N3&0xFF) + (T1N3&0xFF) + addc); addxh = (short)(((T2N3>>>8)&0xFF) + ((T1N3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N3 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T2N2&0xFF) + (T1N2&0xFF) + addc); addxh = (short)(((T2N2>>>8)&0xFF) + ((T1N2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N2 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T2N1&0xFF) + (T1N1&0xFF) + addc); addxh = (short)(((T2N1>>>8)&0xFF) + ((T1N1>>>8)&0xFF) + (short)(addxl>>>8)); T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
-        tmpOff = (short)(4*(short)((j-16) & 0xF)); addb = blk[(short)(tmpOff + 3)]; addxl = (short)((T2N4&0xFF) + (addb&0xFF)); addxh = (short)(((T2N4>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N4 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[(short)(tmpOff + 2)]; addxl = (short)((T2N3&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T2N3>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N3 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[(short)(tmpOff + 1)]; addxl = (short)((T2N2&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T2N2>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N2 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[tmpOff]; addxl = (short)((T2N1&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T2N1>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
-        tmpOff = (short)(4*(short)(j&0xF)); blk[tmpOff] = T2N1; blk[(short)(tmpOff + 1)] = T2N2; blk[(short)(tmpOff + 2)] = T2N3; blk[(short)(tmpOff + 3)] = T2N4;;
-      }
-      T1N1 = HN1; T1N2 = HN2; T1N3 = HN3; T1N4 = HN4;;
-      RN1 = EN1; RN2 = EN2; RN3 = EN3; RN4 = EN4;;
-      T3N1 = (short) ( (RN1>>>14) & (short)3 | ((short)(RN4<<(2))) ); T3N2 = (short) ( (RN2>>>14) & (short)3 | ((short)(RN1<<(2))) ); T3N3 = (short) ( (RN3>>>14) & (short)3 | ((short)(RN2<<(2))) ); T3N4 = (short) ( (RN4>>>14) & (short)3 | ((short)(RN3<<(2))) );; T4N1 = (short) ( (RN4>>>2) & (short)16383 | ((short)(RN3<<(14))) ); T4N2 = (short) ( (RN1>>>2) & (short)16383 | ((short)(RN4<<(14))) ); T4N3 = (short) ( (RN2>>>2) & (short)16383 | ((short)(RN1<<(14))) ); T4N4 = (short) ( (RN3>>>2) & (short)16383 | ((short)(RN2<<(14))) );; T5N1 = (short) ( (RN3>>>9) & (short)127 | ((short)(RN2<<(7))) ); T5N2 = (short) ( (RN4>>>9) & (short)127 | ((short)(RN3<<(7))) ); T5N3 = (short) ( (RN1>>>9) & (short)127 | ((short)(RN4<<(7))) ); T5N4 = (short) ( (RN2>>>9) & (short)127 | ((short)(RN1<<(7))) );; RN1 = (short)(T3N1 ^ T4N1 ^ T5N1); RN2 = (short)(T3N2 ^ T4N2 ^ T5N2); RN3 = (short)(T3N3 ^ T4N3 ^ T5N3); RN4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
-      addxl = (short)((T1N4&0xFF) + (RN4&0xFF)); addxh = (short)(((T1N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N4 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N3&0xFF) + (RN3&0xFF) + addc); addxh = (short)(((T1N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N3 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N2&0xFF) + (RN2&0xFF) + addc); addxh = (short)(((T1N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N2 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N1&0xFF) + (RN1&0xFF) + addc); addxh = (short)(((T1N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8)); T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
-      RN1 = (short) ( ( (EN1) & (FN1) ) ^ ( (~EN1) & (GN1) ) ); RN2 = (short) ( ( (EN2) & (FN2) ) ^ ( (~EN2) & (GN2) ) ); RN3 = (short) ( ( (EN3) & (FN3) ) ^ ( (~EN3) & (GN3) ) ); RN4 = (short) ( ( (EN4) & (FN4) ) ^ ( (~EN4) & (GN4) ) );;
-      addxl = (short)((T1N4&0xFF) + (RN4&0xFF)); addxh = (short)(((T1N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N4 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N3&0xFF) + (RN3&0xFF) + addc); addxh = (short)(((T1N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N3 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N2&0xFF) + (RN2&0xFF) + addc); addxh = (short)(((T1N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N2 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N1&0xFF) + (RN1&0xFF) + addc); addxh = (short)(((T1N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8)); T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
-      jProc = (short)(j*4); RN1 = primeSqrt[(short)(jProc )]; RN2 = primeSqrt[(short)(jProc+1)]; RN3 = primeSqrt[(short)(jProc+2)]; RN4 = primeSqrt[(short)(jProc+3)];;
-      addxl = (short)((T1N4&0xFF) + (RN4&0xFF)); addxh = (short)(((T1N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N4 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N3&0xFF) + (RN3&0xFF) + addc); addxh = (short)(((T1N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N3 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N2&0xFF) + (RN2&0xFF) + addc); addxh = (short)(((T1N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N2 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T1N1&0xFF) + (RN1&0xFF) + addc); addxh = (short)(((T1N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8)); T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
-      tmpOff = (short)(4*(short)(j&0xF)); addb = blk[(short)(tmpOff + 3)]; addxl = (short)((T1N4&0xFF) + (addb&0xFF)); addxh = (short)(((T1N4>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N4 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[(short)(tmpOff + 2)]; addxl = (short)((T1N3&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T1N3>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N3 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[(short)(tmpOff + 1)]; addxl = (short)((T1N2&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T1N2>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T1N2 = (short)((addxh<<8) | (addxl&0xFF)); addb = blk[tmpOff]; addxl = (short)((T1N1&0xFF) + (addb&0xFF) + addc); addxh = (short)(((T1N1>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
-      T2N1 = AN1; T2N2 = AN2; T2N3 = AN3; T2N4 = AN4;;
-      T3N1 = (short) ( (T2N4>>>12) & (short)15 | ((short)(T2N3<<(4))) ); T3N2 = (short) ( (T2N1>>>12) & (short)15 | ((short)(T2N4<<(4))) ); T3N3 = (short) ( (T2N2>>>12) & (short)15 | ((short)(T2N1<<(4))) ); T3N4 = (short) ( (T2N3>>>12) & (short)15 | ((short)(T2N2<<(4))) );; T4N1 = (short) ( (T2N3>>>2) & (short)16383 | ((short)(T2N2<<(14))) ); T4N2 = (short) ( (T2N4>>>2) & (short)16383 | ((short)(T2N3<<(14))) ); T4N3 = (short) ( (T2N1>>>2) & (short)16383 | ((short)(T2N4<<(14))) ); T4N4 = (short) ( (T2N2>>>2) & (short)16383 | ((short)(T2N1<<(14))) );; T5N1 = (short) ( (T2N3>>>7) & (short)511 | ((short)(T2N2<<(9))) ); T5N2 = (short) ( (T2N4>>>7) & (short)511 | ((short)(T2N3<<(9))) ); T5N3 = (short) ( (T2N1>>>7) & (short)511 | ((short)(T2N4<<(9))) ); T5N4 = (short) ( (T2N2>>>7) & (short)511 | ((short)(T2N1<<(9))) );; T2N1 = (short)(T3N1 ^ T4N1 ^ T5N1); T2N2 = (short)(T3N2 ^ T4N2 ^ T5N2); T2N3 = (short)(T3N3 ^ T4N3 ^ T5N3); T2N4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
-      RN1 = (short) ( ( (AN1) & (BN1) ) ^ ( (AN1) & (CN1) ) ^ ( (BN1) & (CN1) ) ); RN2 = (short) ( ( (AN2) & (BN2) ) ^ ( (AN2) & (CN2) ) ^ ( (BN2) & (CN2) ) ); RN3 = (short) ( ( (AN3) & (BN3) ) ^ ( (AN3) & (CN3) ) ^ ( (BN3) & (CN3) ) ); RN4 = (short) ( ( (AN4) & (BN4) ) ^ ( (AN4) & (CN4) ) ^ ( (BN4) & (CN4) ) );;
-      addxl = (short)((T2N4&0xFF) + (RN4&0xFF)); addxh = (short)(((T2N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N4 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T2N3&0xFF) + (RN3&0xFF) + addc); addxh = (short)(((T2N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N3 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T2N2&0xFF) + (RN2&0xFF) + addc); addxh = (short)(((T2N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); T2N2 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((T2N1&0xFF) + (RN1&0xFF) + addc); addxh = (short)(((T2N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8)); T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
-      HN1 = GN1; HN2 = GN2; HN3 = GN3; HN4 = GN4;;
-      GN1 = FN1; GN2 = FN2; GN3 = FN3; GN4 = FN4;;
-      FN1 = EN1; FN2 = EN2; FN3 = EN3; FN4 = EN4;;
-      EN1 = DN1; EN2 = DN2; EN3 = DN3; EN4 = DN4;;
-      DN1 = CN1; DN2 = CN2; DN3 = CN3; DN4 = CN4;;
-      CN1 = BN1; CN2 = BN2; CN3 = BN3; CN4 = BN4;;
-      BN1 = AN1; BN2 = AN2; BN3 = AN3; BN4 = AN4;;
-      AN1 = T1N1; AN2 = T1N2; AN3 = T1N3; AN4 = T1N4;;
+    /*
+     * T1 = Sum_1_512(e) + Chg(e,f,g) + K_t_512 + Wt
+     * T2 = Sum_0_512(a) + Maj(abc) 
+     * h = g ;
+     * g = f;
+     * f = e;
+     * e = d + T1;
+     * d = c;
+     * c = b;
+     * b = a;
+     * a = T1 + T2;     
+     */
+    for (byte j = 0; j<80; j++) 
+    {
+      if (j >= 16) 
+      {
+    	/********assign64Cst(T2, Xj((short)((j-2) & 0xF)));*********/  
+        tmpOff = (short)(4*(short)((j-2) & 0xF));//assign64Cst
+        
+        T2N1 = blk[tmpOff]; 
+        T2N2 = blk[(short)(tmpOff + 1)];
+        T2N3 = blk[(short)(tmpOff + 2)];
+        T2N4 = blk[(short)(tmpOff + 3)];;
+    	/********assign64Cst(T2, Xj((short)((j-2) & 0xF)));	over*********/  
+        /***        sig512(T2,19,61,6); 	***/
+        T3N1 = (short) ( (T2N4>>>3) & (short)8191 | ((short)(T2N3<<(13))) );
+        T3N2 = (short) ( (T2N1>>>3) & (short)8191 | ((short)(T2N4<<(13))) );
+        T3N3 = (short) ( (T2N2>>>3) & (short)8191 | ((short)(T2N1<<(13))) );
+        T3N4 = (short) ( (T2N3>>>3) & (short)8191 | ((short)(T2N2<<(13))) );;
+        
+        T4N1 = (short) ( (T2N2>>>13) & (short)7 | ((short)(T2N1<<(3))) ); 
+        T4N2 = (short) ( (T2N3>>>13) & (short)7 | ((short)(T2N2<<(3))) ); 
+        T4N3 = (short) ( (T2N4>>>13) & (short)7 | ((short)(T2N3<<(3))) ); 
+        T4N4 = (short) ( (T2N1>>>13) & (short)7 | ((short)(T2N4<<(3))) );; 
+        
+        T5N1 = (short) ((T2N1>>>6) & (short)1023); 
+        T5N2 = (short) ( (T2N2>>>6) & (short)1023 | ((short)(T2N1<<(10))) ); 
+        T5N3 = (short) ( (T2N3>>>6) & (short)1023 | ((short)(T2N2<<(10))) );
+        T5N4 = (short) ( (T2N4>>>6) & (short)1023 | ((short)(T2N3<<(10))) );; 
+        /***        sig512(T2,19,61,6); 	over***/
+
+        T2N1 = (short)(T3N1 ^ T4N1 ^ T5N1); 
+        T2N2 = (short)(T3N2 ^ T4N2 ^ T5N2);
+        T2N3 = (short)(T3N3 ^ T4N3 ^ T5N3); 
+        T2N4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
+        /******add64Cst(T2, Xj((short)((j-7)  & 0xF)));*****/
+        tmpOff = (short)(4*(short)((j-7) & 0xF)); //add64Cst
+        
+        addb = blk[(short)(tmpOff + 3)]; 
+        addxl = (short)((T2N4&0xFF) + (addb&0xFF)); 
+        addxh = (short)(((T2N4>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8));
+        addc = (short)(addxh>>>8); 
+        T2N4 = (short)((addxh<<8) | (addxl&0xFF));
+        
+        addb = blk[(short)(tmpOff + 2)]; 
+        addxl = (short)((T2N3&0xFF) + (addb&0xFF) + addc);
+        addxh = (short)(((T2N3>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8));
+        addc = (short)(addxh>>>8); 
+        T2N3 = (short)((addxh<<8) | (addxl&0xFF)); 
+        
+        addb = blk[(short)(tmpOff + 1)]; 
+        addxl = (short)((T2N2&0xFF) + (addb&0xFF) + addc);
+        addxh = (short)(((T2N2>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8));
+        addc = (short)(addxh>>>8); 
+        T2N2 = (short)((addxh<<8) | (addxl&0xFF));
+        
+        addb = blk[tmpOff]; 
+        addxl = (short)((T2N1&0xFF) + (addb&0xFF) + addc); 
+        addxh = (short)(((T2N1>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8));
+        T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
+        /******add64Cst(T2, Xj((short)((j-7)  & 0xF)));	over*****/
+
+        
+        
+        
+        
+        
+        
+        tmpOff = (short)(4*(short)((j-15) & 0xF)); //assign64Cst
+        /*********sig512(T1, 1, 8,7);*********/
+        T1N1 = blk[tmpOff]; 
+        T1N2 = blk[(short)(tmpOff + 1)]; 
+        T1N3 = blk[(short)(tmpOff + 2)]; 
+        T1N4 = blk[(short)(tmpOff + 3)];;
+        
+        T3N1 = (short) ( (T1N1>>>1) & (short)32767 | ((short)(T1N4<<(15))) ); 
+        T3N2 = (short) ( (T1N2>>>1) & (short)32767 | ((short)(T1N1<<(15))) );
+        T3N3 = (short) ( (T1N3>>>1) & (short)32767 | ((short)(T1N2<<(15))) ); 
+        T3N4 = (short) ( (T1N4>>>1) & (short)32767 | ((short)(T1N3<<(15))) );; 
+        
+        T4N1 = (short) ( (T1N1>>>8) & (short)255 | ((short)(T1N4<<(8))) ); 
+        T4N2 = (short) ( (T1N2>>>8) & (short)255 | ((short)(T1N1<<(8))) ); 
+        T4N3 = (short) ( (T1N3>>>8) & (short)255 | ((short)(T1N2<<(8))) ); 
+        T4N4 = (short) ( (T1N4>>>8) & (short)255 | ((short)(T1N3<<(8))) );; 
+        
+        T5N1 = (short) ((T1N1>>>7) & (short)511); 
+        T5N2 = (short) ( (T1N2>>>7) & (short)511 | ((short)(T1N1<<(9))) ); 
+        T5N3 = (short) ( (T1N3>>>7) & (short)511 | ((short)(T1N2<<(9))) ); 
+        T5N4 = (short) ( (T1N4>>>7) & (short)511 | ((short)(T1N3<<(9))) );; 
+        
+        T1N1 = (short)(T3N1 ^ T4N1 ^ T5N1); 
+        T1N2 = (short)(T3N2 ^ T4N2 ^ T5N2); 
+        T1N3 = (short)(T3N3 ^ T4N3 ^ T5N3); 
+        T1N4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
+        /*********sig512(T1, 1, 8,7);	over*********/
+        /***********add64(T2, T1);***********/
+        addxl = (short)((T2N4&0xFF) + (T1N4&0xFF)); 
+        addxh = (short)(((T2N4>>>8)&0xFF) + ((T1N4>>>8)&0xFF) + (short)(addxl>>>8)); 
+        addc = (short)(addxh>>>8); 
+        T2N4 = (short)((addxh<<8) | (addxl&0xFF)); 
+        
+        addxl = (short)((T2N3&0xFF) + (T1N3&0xFF) + addc); 
+        addxh = (short)(((T2N3>>>8)&0xFF) + ((T1N3>>>8)&0xFF) + (short)(addxl>>>8)); 
+        addc = (short)(addxh>>>8); 
+        T2N3 = (short)((addxh<<8) | (addxl&0xFF)); 
+        
+        addxl = (short)((T2N2&0xFF) + (T1N2&0xFF) + addc); 
+        addxh = (short)(((T2N2>>>8)&0xFF) + ((T1N2>>>8)&0xFF) + (short)(addxl>>>8)); 
+        addc = (short)(addxh>>>8); 
+        T2N2 = (short)((addxh<<8) | (addxl&0xFF)); 
+        
+        addxl = (short)((T2N1&0xFF) + (T1N1&0xFF) + addc); 
+        addxh = (short)(((T2N1>>>8)&0xFF) + ((T1N1>>>8)&0xFF) + (short)(addxl>>>8)); 
+        T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
+        /***********add64(T2, T1);	over***********/
+        /***********add64Cst*************/
+        tmpOff = (short)(4*(short)((j-16) & 0xF)); 
+        
+        addb = blk[(short)(tmpOff + 3)]; 
+        addxl = (short)((T2N4&0xFF) + (addb&0xFF)); 
+        addxh = (short)(((T2N4>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); 
+        addc = (short)(addxh>>>8); 
+        T2N4 = (short)((addxh<<8) | (addxl&0xFF)); 
+        
+        addb = blk[(short)(tmpOff + 2)]; 
+        addxl = (short)((T2N3&0xFF) + (addb&0xFF) + addc); 
+        addxh = (short)(((T2N3>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); 
+        addc = (short)(addxh>>>8); 
+        T2N3 = (short)((addxh<<8) | (addxl&0xFF)); 
+        
+        addb = blk[(short)(tmpOff + 1)]; 
+        addxl = (short)((T2N2&0xFF) + (addb&0xFF) + addc);
+        addxh = (short)(((T2N2>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); 
+        addc = (short)(addxh>>>8); 
+        T2N2 = (short)((addxh<<8) | (addxl&0xFF)); 
+        
+        addb = blk[tmpOff]; 
+        addxl = (short)((T2N1&0xFF) + (addb&0xFF) + addc); 
+        addxh = (short)(((T2N1>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8));
+        T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
+        /***********add64Cst	over*************/
+        /************assign64ToCst(Xj((short)(j&0xF)),T2);**************/
+        tmpOff = (short)(4*(short)(j&0xF));
+        
+        blk[tmpOff] = T2N1;
+        blk[(short)(tmpOff + 1)] = T2N2;
+        blk[(short)(tmpOff + 2)] = T2N3;
+        blk[(short)(tmpOff + 3)] = T2N4;;
+        /************assign64ToCst(Xj((short)(j&0xF)),T2);  over**************/
+
+      }//if end
+      T1N1 = HN1; //assign64
+      T1N2 = HN2; 
+      T1N3 = HN3; 
+      T1N4 = HN4;;
+      RN1 = EN1; //assign64
+      RN2 = EN2; 
+      RN3 = EN3; 
+      RN4 = EN4;;
+      /*****sum512(R,14,18,41);****/
+      T3N1 = (short) ( (RN1>>>14) & (short)3 | ((short)(RN4<<(2))) ); 
+      T3N2 = (short) ( (RN2>>>14) & (short)3 | ((short)(RN1<<(2))) );
+      T3N3 = (short) ( (RN3>>>14) & (short)3 | ((short)(RN2<<(2))) );
+      T3N4 = (short) ( (RN4>>>14) & (short)3 | ((short)(RN3<<(2))) );;
+      
+      T4N1 = (short) ( (RN4>>>2) & (short)16383 | ((short)(RN3<<(14))) );
+      T4N2 = (short) ( (RN1>>>2) & (short)16383 | ((short)(RN4<<(14))) );
+      T4N3 = (short) ( (RN2>>>2) & (short)16383 | ((short)(RN1<<(14))) );
+      T4N4 = (short) ( (RN3>>>2) & (short)16383 | ((short)(RN2<<(14))) );;
+      
+      T5N1 = (short) ( (RN3>>>9) & (short)127 | ((short)(RN2<<(7))) );
+      T5N2 = (short) ( (RN4>>>9) & (short)127 | ((short)(RN3<<(7))) );
+      T5N3 = (short) ( (RN1>>>9) & (short)127 | ((short)(RN4<<(7))) );
+      T5N4 = (short) ( (RN2>>>9) & (short)127 | ((short)(RN1<<(7))) );;
+      
+      
+      RN1 = (short)(T3N1 ^ T4N1 ^ T5N1);
+      RN2 = (short)(T3N2 ^ T4N2 ^ T5N2); 
+      RN3 = (short)(T3N3 ^ T4N3 ^ T5N3); 
+      RN4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
+      /*****sum512(R,14,18,41);   over ****/
+      /**********************add64(T1,R); ****************************/
+
+      addxl = (short)((T1N4&0xFF) + (RN4&0xFF));
+      addxh = (short)(((T1N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8);
+      T1N4 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N3&0xFF) + (RN3&0xFF) + addc);
+      addxh = (short)(((T1N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T1N3 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N2&0xFF) + (RN2&0xFF) + addc);
+      addxh = (short)(((T1N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T1N2 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N1&0xFF) + (RN1&0xFF) + addc);
+      addxh = (short)(((T1N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8));
+      T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
+      /**********************add64(T1,R); over ****************************/
+      /**********************	ch(R, E,F,G);   *******************/
+      RN1 = (short) ( ( (EN1) & (FN1) ) ^ ( (~EN1) & (GN1) ) );
+      RN2 = (short) ( ( (EN2) & (FN2) ) ^ ( (~EN2) & (GN2) ) );
+      RN3 = (short) ( ( (EN3) & (FN3) ) ^ ( (~EN3) & (GN3) ) );
+      RN4 = (short) ( ( (EN4) & (FN4) ) ^ ( (~EN4) & (GN4) ) );;
+      /**********************	ch(R, E,F,G);  over *******************/
+      /**********************add64(T1,R); ****************************/
+
+      addxl = (short)((T1N4&0xFF) + (RN4&0xFF));
+      addxh = (short)(((T1N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8);
+      T1N4 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N3&0xFF) + (RN3&0xFF) + addc);
+      addxh = (short)(((T1N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8);
+      T1N3 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N2&0xFF) + (RN2&0xFF) + addc);
+      addxh = (short)(((T1N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T1N2 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N1&0xFF) + (RN1&0xFF) + addc);
+      addxh = (short)(((T1N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8));
+      T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
+      /**********************add64(T1,R); over****************************/
+
+      /*********************assign64Sqrt(R,j); ************************/
+      jProc = (short)(j*4); 
+      
+      RN1 = primeSqrt[(short)(jProc )];
+      RN2 = primeSqrt[(short)(jProc+1)];
+      RN3 = primeSqrt[(short)(jProc+2)];
+      RN4 = primeSqrt[(short)(jProc+3)];;
+      /*********************assign64Sqrt(R,j); over************************/
+      /**********************add64(T1,R); ****************************/
+
+      addxl = (short)((T1N4&0xFF) + (RN4&0xFF));
+      addxh = (short)(((T1N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8);
+      T1N4 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N3&0xFF) + (RN3&0xFF) + addc);
+      addxh = (short)(((T1N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8);
+      T1N3 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T1N2&0xFF) + (RN2&0xFF) + addc);
+      addxh = (short)(((T1N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T1N2 = (short)((addxh<<8) | (addxl&0xFF)); 
+      
+      addxl = (short)((T1N1&0xFF) + (RN1&0xFF) + addc); 
+      addxh = (short)(((T1N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8));
+      T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
+      /**********************add64(T1,R); over****************************/
+      /**********************add64Cst(T1,Xj((short)(j&0xF)));  *************************/
+      tmpOff = (short)(4*(short)(j&0xF));
+      
+      addb = blk[(short)(tmpOff + 3)];
+      addxl = (short)((T1N4&0xFF) + (addb&0xFF));
+      addxh = (short)(((T1N4>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T1N4 = (short)((addxh<<8) | (addxl&0xFF)); 
+      
+      addb = blk[(short)(tmpOff + 2)]; 
+      addxl = (short)((T1N3&0xFF) + (addb&0xFF) + addc);
+      addxh = (short)(((T1N3>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8);
+      T1N3 = (short)((addxh<<8) | (addxl&0xFF)); 
+      
+      addb = blk[(short)(tmpOff + 1)]; 
+      addxl = (short)((T1N2&0xFF) + (addb&0xFF) + addc); 
+      addxh = (short)(((T1N2>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); 
+      addc = (short)(addxh>>>8); 
+      T1N2 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addb = blk[tmpOff]; 
+      addxl = (short)((T1N1&0xFF) + (addb&0xFF) + addc);
+      addxh = (short)(((T1N1>>>8)&0xFF) + ((addb>>>8)&0xFF) + (short)(addxl>>>8)); 
+      T1N1 = (short)((addxh<<8) | (addxl&0xFF));;
+      /**********************add64Cst(T1,Xj((short)(j&0xF)));  over*************************/
+
+      T2N1 = AN1; T2N2 = AN2; T2N3 = AN3; T2N4 = AN4;;//assign64(T2,A);  
+      /**************      sum512(T2,28,34,39); ********************/
+      T3N1 = (short) ( (T2N4>>>12) & (short)15 | ((short)(T2N3<<(4))) );
+      T3N2 = (short) ( (T2N1>>>12) & (short)15 | ((short)(T2N4<<(4))) );
+      T3N3 = (short) ( (T2N2>>>12) & (short)15 | ((short)(T2N1<<(4))) );
+      T3N4 = (short) ( (T2N3>>>12) & (short)15 | ((short)(T2N2<<(4))) );;
+      
+      T4N1 = (short) ( (T2N3>>>2) & (short)16383 | ((short)(T2N2<<(14))) );
+      T4N2 = (short) ( (T2N4>>>2) & (short)16383 | ((short)(T2N3<<(14))) );
+      T4N3 = (short) ( (T2N1>>>2) & (short)16383 | ((short)(T2N4<<(14))) ); 
+      T4N4 = (short) ( (T2N2>>>2) & (short)16383 | ((short)(T2N1<<(14))) );;
+      
+      T5N1 = (short) ( (T2N3>>>7) & (short)511 | ((short)(T2N2<<(9))) );
+      T5N2 = (short) ( (T2N4>>>7) & (short)511 | ((short)(T2N3<<(9))) );
+      T5N3 = (short) ( (T2N1>>>7) & (short)511 | ((short)(T2N4<<(9))) );
+      T5N4 = (short) ( (T2N2>>>7) & (short)511 | ((short)(T2N1<<(9))) );;
+      /**************      sum512(T2,28,34,39);    over ********************/
+      /**************	   maj(R,A,B,C);  ********************/
+      T2N1 = (short)(T3N1 ^ T4N1 ^ T5N1);
+      T2N2 = (short)(T3N2 ^ T4N2 ^ T5N2); 
+      T2N3 = (short)(T3N3 ^ T4N3 ^ T5N3); 
+      T2N4 = (short)(T3N4 ^ T4N4 ^ T5N4);;
+      
+      RN1 = (short) ( ( (AN1) & (BN1) ) ^ ( (AN1) & (CN1) ) ^ ( (BN1) & (CN1) ) );
+      RN2 = (short) ( ( (AN2) & (BN2) ) ^ ( (AN2) & (CN2) ) ^ ( (BN2) & (CN2) ) );
+      RN3 = (short) ( ( (AN3) & (BN3) ) ^ ( (AN3) & (CN3) ) ^ ( (BN3) & (CN3) ) );
+      RN4 = (short) ( ( (AN4) & (BN4) ) ^ ( (AN4) & (CN4) ) ^ ( (BN4) & (CN4) ) );;
+      /**************	   maj(R,A,B,C);  over ********************/
+      /**********************add64(T2,R); ****************************/
+      addxl = (short)((T2N4&0xFF) + (RN4&0xFF)); 
+      addxh = (short)(((T2N4>>>8)&0xFF) + ((RN4>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T2N4 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T2N3&0xFF) + (RN3&0xFF) + addc);
+      addxh = (short)(((T2N3>>>8)&0xFF) + ((RN3>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T2N3 = (short)((addxh<<8) | (addxl&0xFF)); 
+      
+      addxl = (short)((T2N2&0xFF) + (RN2&0xFF) + addc); 
+      addxh = (short)(((T2N2>>>8)&0xFF) + ((RN2>>>8)&0xFF) + (short)(addxl>>>8));
+      addc = (short)(addxh>>>8); 
+      T2N2 = (short)((addxh<<8) | (addxl&0xFF));
+      
+      addxl = (short)((T2N1&0xFF) + (RN1&0xFF) + addc);
+      addxh = (short)(((T2N1>>>8)&0xFF) + ((RN1>>>8)&0xFF) + (short)(addxl>>>8)); 
+      T2N1 = (short)((addxh<<8) | (addxl&0xFF));;
+      /**********************add64(T2,R);  over****************************/
+      
+      
+      
+      /*
+      H = G ;
+      G = F;
+      F = E;
+      E = D+T1;
+      D = C;
+      C = B;
+      B = A;
+      A = T1+T2;
+      */
+      HN1 = GN1; HN2 = GN2; HN3 = GN3; HN4 = GN4;;//assign64
+      GN1 = FN1; GN2 = FN2; GN3 = FN3; GN4 = FN4;;//assign64
+      FN1 = EN1; FN2 = EN2; FN3 = EN3; FN4 = EN4;;//assign64
+      EN1 = DN1; EN2 = DN2; EN3 = DN3; EN4 = DN4;;//assign64
+      DN1 = CN1; DN2 = CN2; DN3 = CN3; DN4 = CN4;;//assign64
+      CN1 = BN1; CN2 = BN2; CN3 = BN3; CN4 = BN4;;//assign64
+      BN1 = AN1; BN2 = AN2; BN3 = AN3; BN4 = AN4;;//assign64
+      AN1 = T1N1; AN2 = T1N2; AN3 = T1N3; AN4 = T1N4;;//assign64
+      //add64
       addxl = (short)((AN4&0xFF) + (T2N4&0xFF)); addxh = (short)(((AN4>>>8)&0xFF) + ((T2N4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); AN4 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((AN3&0xFF) + (T2N3&0xFF) + addc); addxh = (short)(((AN3>>>8)&0xFF) + ((T2N3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); AN3 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((AN2&0xFF) + (T2N2&0xFF) + addc); addxh = (short)(((AN2>>>8)&0xFF) + ((T2N2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); AN2 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((AN1&0xFF) + (T2N1&0xFF) + addc); addxh = (short)(((AN1>>>8)&0xFF) + ((T2N1>>>8)&0xFF) + (short)(addxl>>>8)); AN1 = (short)((addxh<<8) | (addxl&0xFF));;
       addxl = (short)((EN4&0xFF) + (T1N4&0xFF)); addxh = (short)(((EN4>>>8)&0xFF) + ((T1N4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); EN4 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((EN3&0xFF) + (T1N3&0xFF) + addc); addxh = (short)(((EN3>>>8)&0xFF) + ((T1N3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); EN3 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((EN2&0xFF) + (T1N2&0xFF) + addc); addxh = (short)(((EN2>>>8)&0xFF) + ((T1N2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); EN2 = (short)((addxh<<8) | (addxl&0xFF)); addxl = (short)((EN1&0xFF) + (T1N1&0xFF) + addc); addxh = (short)(((EN1>>>8)&0xFF) + ((T1N1>>>8)&0xFF) + (short)(addxl>>>8)); EN1 = (short)((addxh<<8) | (addxl&0xFF));;
     }
-    adda = working[(short)(H0 + 3)]; addxl = (short)((adda&0xFF) + (AN4&0xFF)); addxh = (short)(((adda>>>8)&0xFF) + ((AN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H0 + 3)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H0 + 2)]; addxl = (short)((adda&0xFF) + (AN3&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((AN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H0 + 2)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H0 + 1)]; addxl = (short)((adda&0xFF) + (AN2&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((AN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H0 + 1)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[H0]; addxl = (short)((adda&0xFF) + (AN1&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((AN1>>>8)&0xFF) + (short)(addxl>>>8)); working[H0] = (short)((addxh<<8) | (addxl&0xFF));;
+    //add64H(H0, A);
+    adda = working[(short)(H0 + 3)]; 
+    addxl = (short)((adda&0xFF) + (AN4&0xFF)); 
+    addxh = (short)(((adda>>>8)&0xFF) + ((AN4>>>8)&0xFF) + (short)(addxl>>>8)); 
+    addc = (short)(addxh>>>8); 
+    working[(short)(H0 + 3)] = (short)((addxh<<8) | (addxl&0xFF)); 
+    
+    adda = working[(short)(H0 + 2)]; 
+    addxl = (short)((adda&0xFF) + (AN3&0xFF) + addc); 
+    addxh = (short)(((adda>>>8)&0xFF) + ((AN3>>>8)&0xFF) + (short)(addxl>>>8)); 
+    addc = (short)(addxh>>>8); 
+    working[(short)(H0 + 2)] = (short)((addxh<<8) | (addxl&0xFF)); 
+    
+    adda = working[(short)(H0 + 1)]; 
+    addxl = (short)((adda&0xFF) + (AN2&0xFF) + addc); 
+    addxh = (short)(((adda>>>8)&0xFF) + ((AN2>>>8)&0xFF) + (short)(addxl>>>8));
+    addc = (short)(addxh>>>8); 
+    working[(short)(H0 + 1)] = (short)((addxh<<8) | (addxl&0xFF)); 
+    
+    adda = working[H0]; 
+    addxl = (short)((adda&0xFF) + (AN1&0xFF) + addc); 
+    addxh = (short)(((adda>>>8)&0xFF) + ((AN1>>>8)&0xFF) + (short)(addxl>>>8));
+    working[H0] = (short)((addxh<<8) | (addxl&0xFF));;
+    //    add64H(H1, B); 
     adda = working[(short)(H1 + 3)]; addxl = (short)((adda&0xFF) + (BN4&0xFF)); addxh = (short)(((adda>>>8)&0xFF) + ((BN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H1 + 3)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H1 + 2)]; addxl = (short)((adda&0xFF) + (BN3&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((BN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H1 + 2)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H1 + 1)]; addxl = (short)((adda&0xFF) + (BN2&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((BN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H1 + 1)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[H1]; addxl = (short)((adda&0xFF) + (BN1&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((BN1>>>8)&0xFF) + (short)(addxl>>>8)); working[H1] = (short)((addxh<<8) | (addxl&0xFF));;
+    //	  add64H(H2, C); 
     adda = working[(short)(H2 + 3)]; addxl = (short)((adda&0xFF) + (CN4&0xFF)); addxh = (short)(((adda>>>8)&0xFF) + ((CN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H2 + 3)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H2 + 2)]; addxl = (short)((adda&0xFF) + (CN3&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((CN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H2 + 2)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H2 + 1)]; addxl = (short)((adda&0xFF) + (CN2&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((CN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H2 + 1)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[H2]; addxl = (short)((adda&0xFF) + (CN1&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((CN1>>>8)&0xFF) + (short)(addxl>>>8)); working[H2] = (short)((addxh<<8) | (addxl&0xFF));;
     adda = working[(short)(H3 + 3)]; addxl = (short)((adda&0xFF) + (DN4&0xFF)); addxh = (short)(((adda>>>8)&0xFF) + ((DN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H3 + 3)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H3 + 2)]; addxl = (short)((adda&0xFF) + (DN3&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((DN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H3 + 2)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H3 + 1)]; addxl = (short)((adda&0xFF) + (DN2&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((DN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H3 + 1)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[H3]; addxl = (short)((adda&0xFF) + (DN1&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((DN1>>>8)&0xFF) + (short)(addxl>>>8)); working[H3] = (short)((addxh<<8) | (addxl&0xFF));;
     adda = working[(short)(H4 + 3)]; addxl = (short)((adda&0xFF) + (EN4&0xFF)); addxh = (short)(((adda>>>8)&0xFF) + ((EN4>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H4 + 3)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H4 + 2)]; addxl = (short)((adda&0xFF) + (EN3&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((EN3>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H4 + 2)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[(short)(H4 + 1)]; addxl = (short)((adda&0xFF) + (EN2&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((EN2>>>8)&0xFF) + (short)(addxl>>>8)); addc = (short)(addxh>>>8); working[(short)(H4 + 1)] = (short)((addxh<<8) | (addxl&0xFF)); adda = working[H4]; addxl = (short)((adda&0xFF) + (EN1&0xFF) + addc); addxh = (short)(((adda>>>8)&0xFF) + ((EN1>>>8)&0xFF) + (short)(addxl>>>8)); working[H4] = (short)((addxh<<8) | (addxl&0xFF));;

@@ -1,393 +1,363 @@
-package btc;
+package Blockchain;
 
-import javacard.framework.JCSystem;
-import javacard.framework.Util;
-
+import java.io.*;
+/*
+ * Author	Shengqi Suizhu
+ * Date		2014.12.07
+ * See more detailed information in README.md
+ * 
+ */
+//pseudo-code used from  http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf P22
 public class SHA256 {
- 	private static final short[] k = new short[]{	
-		(short)0x428a,(short)0x2f98,(short)0x7137,(short)0x4491,(short)0xb5c0,(short)0xfbcf,(short)0xe9b5,(short)0xdba5,(short)0x3956,(short)0xc25b,(short)0x59f1,(short)0x11f1,(short)0x923f,(short)0x82a4,(short)0xab1c,(short)0x5ed5,(short)0xd807,(short)0xaa98,(short)0x1283,(short)0x5b01,(short)0x2431,(short)0x85be,(short)0x550c,(short)0x7dc3,(short)0x72be,(short)0x5d74,(short)0x80de,(short)0xb1fe,(short)0x9bdc,(short)0x6a7,(short)0xc19b,(short)0xf174,
-		(short)0xe49b,(short)0x69c1,(short)0xefbe,(short)0x4786,(short)0xfc1,(short)0x9dc6,(short)0x240c,(short)0xa1cc,(short)0x2de9,(short)0x2c6f,(short)0x4a74,(short)0x84aa,(short)0x5cb0,(short)0xa9dc,(short)0x76f9,(short)0x88da,(short)0x983e,(short)0x5152,(short)0xa831,(short)0xc66d,(short)0xb003,(short)0x27c8,(short)0xbf59,(short)0x7fc7,(short)0xc6e0,(short)0xbf3,(short)0xd5a7,(short)0x9147,(short)0x6ca,(short)0x6351,(short)0x1429,(short)0x2967,
-		(short)0x27b7,(short)0xa85,(short)0x2e1b,(short)0x2138,(short)0x4d2c,(short)0x6dfc,(short)0x5338,(short)0xd13,(short)0x650a,(short)0x7354,(short)0x766a,(short)0xabb,(short)0x81c2,(short)0xc92e,(short)0x9272,(short)0x2c85,(short)0xa2bf,(short)0xe8a1,(short)0xa81a,(short)0x664b,(short)0xc24b,(short)0x8b70,(short)0xc76c,(short)0x51a3,(short)0xd192,(short)0xe819,(short)0xd699,(short)0x624,(short)0xf40e,(short)0x3585,(short)0x106a,(short)0xa070,
-		(short)0x19a4,(short)0xc116,(short)0x1e37,(short)0x6c08,(short)0x2748,(short)0x774c,(short)0x34b0,(short)0xbcb5,(short)0x391c,(short)0xcb3,(short)0x4ed8,(short)0xaa4a,(short)0x5b9c,(short)0xca4f,(short)0x682e,(short)0x6ff3,(short)0x748f,(short)0x82ee,(short)0x78a5,(short)0x636f,(short)0x84c8,(short)0x7814,(short)0x8cc7,(short)0x208,(short)0x90be,(short)0xfffa,(short)0xa450,(short)0x6ceb,(short)0xbef9,(short)0xa3f7,(short)0xc671,(short)0x78f2
-		};
-	private static short[] messageHigh = new short[16];
-	private static short[] messageLow = new short[16];
-	private static short[] digestHigh = new short[8];
-	private static short[] digestLow = new short[8];
-	private static final short[] ini = new short[]{ //message 初值
-			(short)0x6a09,(short)0xe667,
-			(short)0xbb67,(short)0xae85,
-			(short)0x3c6e,(short)0xf372,
-			(short)0xa54f,(short)0xf53a,
-			(short)0x510e,(short)0x527f,
-			(short)0x9b05,(short)0x688c,
-			(short)0x1f83,(short)0xd9ab,
-			(short)0x5be0,(short)0xcd19};
-	private static byte[] temp; 
-	/*
-	 * 构造器
-	 * @param: Y 报文
-	 * @param: length 报文长度
-	 * @param: buffer 存放摘要的数组
-	 */
-	public SHA256(byte[] Y, short length, byte[] buffer, short offset)
-	{
-		init();
-		pad(Y, length);
-		getByteDigest(buffer, offset); 
-	} 
-	/*
-	 * @brief: 初始化
-	 * @return: none
-	 */
-	public static void init()
-	{
-		for(short i = 0; i < 8; i++)
-		{
-			digestHigh[i] = ini[i*2];
-			digestLow[i] = ini[i*2+1];
-		}
-		if(temp == null)
-			temp = JCSystem.makeTransientByteArray((short)256, JCSystem.CLEAR_ON_DESELECT);
-		
-	}
-	/*
-	 * constructor
-	 */
-	public SHA256(){}
-	/*
-	 * @brief:生成摘要
-	 * @param: Y 报文
-	 * @param: length 报文长度
-	 * @param: buffer 存放摘要的数组
-	 * @return: none
-	 */
-	public static void doAll(byte[] Y, short length, byte[] buffer, short offset)
-	{
-		init();
-		pad(Y, length);
-		getByteDigest(buffer, offset); 
-	} 
-	/*
-	 * @brief: 添加填充位和长度并处理报文
-	 * @param: Y 报文(数组大小应大于255+64字节)
-	 * @param: length 报文长度（字节数）
-	 */
-	private static void pad(byte[] Y, short length)
-	{ 
-		for(short i = 0; i < temp.length; i++)//初始化
-		{
-			temp[i] = 0;
-		}
-		short n = (short)((length+8)/64+1);//报文组数
-		//求最后一组报文temp的摘要
-		Util.arrayCopyNonAtomic(Y, (short)((n-1)*64), temp, (short)0, (short)(length%64));
-		short m = (short)(length%64);//报文长度
-		short d = (55 - m)>0? (short)(55-m):(short)(m-55);//填充0x00长度
-	    //填充1次1000 0000
-        temp[m] = (byte)0x80;
-        //填充d次0000 0000
-        byte i;
-        for(i = (byte)(m+1); i < m+1+d; i++)
-        {
-        	temp[i] = (byte)0x00;
-        }
-        //填充长度位数的63-0位
-        for(i=1;i <= 2;i++){
-            temp[64-i] = (byte)(8*length>>(i-1)*8);
-        } 
-        //byte[]数组转换成short[]数组 
-		for(i = 0; i < 64/4; i++)
-        { 
-        	messageHigh[i]  = (short)((short)(temp[i*4]<<8) + (((short)temp[i*4+1])&0xFF)); 
-        	messageLow[i]  = (short)((short)(temp[i*4+2]<<8) + (((short)temp[i*4+3])&0xFF)); 
-        }
-		deal(messageHigh, messageLow);
-	}
-	/*
-	 * @brief: 处理512比特数据 
-	 */
-	private static void deal(short[] mHigh,short[] mLow)
-	{
-		short i;
-		short t1High; short t1Low;
-		short t2High; short t2Low;
-		short[] wHigh = new short[64];
-		short[] wLow = new short[64];
-		short AHigh; short ALow;
-		short BHigh; short BLow;
-		short CHigh; short CLow;
-		short DHigh; short DLow;
-		short EHigh; short ELow;
-		short FHigh; short FLow;
-		short GHigh; short GLow;
-		short HHigh; short HLow;
-		for(i = 0; i<16; i++)
-		{
-			wHigh[i] = mHigh[i];
-			wLow[i] = mLow[i];
-		}
-		short b1High,b1Low;
-		for(i = 16; i < 64; i++)// SSigma_1(W[i-2])+W[i-7]+SSigma_0(W[i-15])+W[i-16];  
-		{  
-			//SSigma_1(W[i-2])
-			sSigma_1(wHigh[i-2],wLow[i-2]);  
-			//SSigma_0(W[i-15])
-			sSigma_0(wHigh[i-15],wLow[i-15]); 
-			//SSigma_1(W[i-2])+W[i-7]
-			Uint32.add(sSigma1High,sSigma1Low,wHigh[i-7],wLow[i-7]);
-			b1High = Uint32.addHigh;
-			b1Low = Uint32.addLow;
-			//SSigma_0(W[i-15])+W[i-16]
-			Uint32.add(sSigma0High, sSigma0Low, wHigh[i-16], wLow[i-16]);
-			//SSigma_1(W[i-2])+W[i-7]+SSigma_0(W[i-15])+W[i-16]
-			Uint32.add(Uint32.addHigh, Uint32.addLow, b1High, b1Low);
-			wHigh[i] = Uint32.addHigh;
-			wLow[i] = Uint32.addLow;
-		} 
-		AHigh = digestHigh[0];
-		ALow = digestLow[0];
-		BHigh = digestHigh[1];
-		BLow = digestLow[1];
-		CHigh = digestHigh[2];
-		CLow = digestLow[2];
-		DHigh = digestHigh[3];
-		DLow = digestLow[3];
-		EHigh = digestHigh[4];
-		ELow = digestLow[4];
-		FHigh = digestHigh[5];
-		FLow = digestLow[5];
-		GHigh = digestHigh[6];
-		GLow = digestLow[6];
-		HHigh = digestHigh[7];
-		HLow = digestLow[7];  
-	    short kHigh, kLow;
-	    short addXHigh, addXLow;
-	    for(i=0;i<64;i++)
-	    {  
-	    	kHigh = k[2*i];
-	    	kLow = k[2*i+1]; 
-			lSigma_1(EHigh, ELow); //b1
-			Uint32.add(HHigh, HLow, lSigma1High, lSigma1Low);//b2 = Uint32.add(H, b1); 
-			addXHigh = Uint32.addHigh;
-			addXLow = Uint32.addLow;
-			conditional(EHigh, ELow, FHigh, FLow, GHigh, GLow); //b3
-			Uint32.add(condHigh, condLow, kHigh, kLow);//b4 
-			Uint32.add(
-	        		addXHigh, addXLow, Uint32.addHigh, Uint32.addLow
-			);//b5 
-	        Uint32.add(  
-	        		Uint32.addHigh, Uint32.addLow,
-	        		wHigh[i], wLow[i]);//t1
-	        t1High = Uint32.addHigh;
-	        t1Low = Uint32.addLow; 
-	        lSigma_0(AHigh, ALow);//b1 
-	        majority(AHigh, ALow, BHigh, BLow, CHigh, CLow);//b2  
-	        Uint32.add( lSigma0High, lSigma0Low, majorHigh, majorLow); //t2
-	        t2High = Uint32.addHigh;
-	        t2Low = Uint32.addLow;
-	        HHigh = GHigh; HLow = GLow;//H = G;  
-	        GHigh = FHigh; GLow = FLow;//G = F;  
-	        FHigh = EHigh ;FLow = ELow;//F = E;   
-	        Uint32.add(DHigh, DLow, t1High, t1Low);//E  
-	        EHigh = Uint32.addHigh;
-	        ELow = Uint32.addLow;
-	        DHigh = CHigh; DLow = CLow;//D = C;  
-	        CHigh = BHigh; CLow = BLow;//C = B;  
-	        BHigh = AHigh; BLow = ALow;//B = A;   
-	        Uint32.add(t1High, t1Low, t2High, t2Low);//A
-	        AHigh = Uint32.addHigh;
-	        ALow = Uint32.addLow;
-	    } 
-	    //messageDigest.H[0]=  Uint32.add(messageDigest.H[0], A);  
-	    Uint32.add(digestHigh[0], digestLow[0], AHigh, ALow);
-	    digestHigh[0] = Uint32.addHigh; digestLow[0] = Uint32.addLow; 
-	    //messageDigest.H[1]=  Uint32.add(messageDigest.H[1], B); 
-	    Uint32.add(digestHigh[1], digestLow[1], BHigh, BLow);
-	    digestHigh[1] = Uint32.addHigh; digestLow[1] = Uint32.addLow; 
-	    //messageDigest.H[2]=  Uint32.add(messageDigest.H[2], C);
-	    Uint32.add(digestHigh[2], digestLow[2], CHigh, CLow);
-	    digestHigh[2] = Uint32.addHigh; digestLow[2] = Uint32.addLow;  
-	    //messageDigest.H[3]=  Uint32.add(messageDigest.H[3], D); 
-	    Uint32.add(digestHigh[3], digestLow[3], DHigh, DLow);
-	    digestHigh[3] = Uint32.addHigh; digestLow[3] = Uint32.addLow; 
-	    //messageDigest.H[4]=  Uint32.add(messageDigest.H[4], E);
-	    Uint32.add(digestHigh[4], digestLow[4], EHigh, ELow);
-	    digestHigh[4] = Uint32.addHigh; digestLow[4] = Uint32.addLow;  
-	    //messageDigest.H[5]=  Uint32.add(messageDigest.H[5], F);
-	    Uint32.add(digestHigh[5], digestLow[5], FHigh, FLow);
-	    digestHigh[5] = Uint32.addHigh; digestLow[5] = Uint32.addLow;  
-	    //messageDigest.H[6]=  Uint32.add(messageDigest.H[6], G); 
-	    Uint32.add(digestHigh[6], digestLow[6], GHigh, GLow);
-	    digestHigh[6] = Uint32.addHigh; digestLow[6] = Uint32.addLow; 
-	    //messageDigest.H[7]=  Uint32.add(messageDigest.H[7], H); 
-	    Uint32.add(digestHigh[7], digestLow[7], HHigh, HLow);
-	    digestHigh[7] = Uint32.addHigh; digestLow[7] = Uint32.addLow;    
-	}
-	/*
-	 * conditional 运算结果变量
-	 */
-	private static short condHigh;
-	private static short condLow;
-	//六个逻辑函数
-	private static void conditional(short xHigh, short xLow, short yHigh, short yLow, short zHigh, short zLow)//Conditional(x,y,z) ((x&y)^((~x)&z))
-	{ 
-		short andXYHigh,andXYLow;
-		//x&y
-		Uint32.and(xHigh, xLow, yHigh, yLow); 
-		andXYHigh = Uint32.andHigh;
-		andXYLow = Uint32.andLow;
-		//~x
-		Uint32.not(xHigh, xLow);
-		//~x & z
-		Uint32.and(Uint32.notHigh,Uint32.notLow,zHigh,zLow);
-		//cond x,y,z
-		Uint32.xor(andXYHigh, andXYLow, Uint32.andHigh, Uint32.andLow); 
-		condHigh = Uint32.xorHigh;
-		condLow = Uint32.xorLow;
-	}
-	/*
-	 * major 运算结果变量
-	 */
-	private static short majorHigh;
-	private static short majorLow;
-	private static void majority(short xHigh, short xLow, short yHigh, short yLow, short zHigh, short zLow) //Majority(x,y,z) ((x&y)^(x&z)^(y&z))
-	{  
-		short andXYHigh, andXYLow, andXZHigh, andXZLow;
-		//x & y
-		Uint32.and(xHigh, xLow, yHigh, yLow);
-		andXYHigh = Uint32.andHigh;
-		andXYLow = Uint32.andLow;
-		//x & z
-		Uint32.and(xHigh, xLow, zHigh, zLow);
-		andXZHigh = Uint32.andHigh;
-		andXZLow = Uint32.andLow;
-		// (x&y)^(x&z)
-		Uint32.xor(andXYHigh, andXYLow, andXZHigh, andXZLow);
-		// y & z
-		Uint32.and(yHigh, yLow, zHigh, zLow);
-		//(x&y)^(x&z)^(y&z)
-		Uint32.xor(Uint32.xorHigh, Uint32.xorLow, Uint32.andHigh, Uint32.andLow);
-		majorHigh = Uint32.xorHigh;
-		majorLow = Uint32.xorLow; 
-	}
-	/*
-	 * lSigma_0 运算结果变量
-	 */
-	private static short lSigma0High;
-	private static short lSigma0Low;
-	private static void lSigma_0(short xHigh, short xLow)//LSigma_0(x) (ROTL(x,30)^ROTL(x,19)^ROTL(x,10))
-	{ 
-		short rotlXHigh, rotlXLow;
-		//(ROTL(x,30)
-		Uint32.rotl(xHigh, xLow, (short)30);
-		rotlXHigh = Uint32.rotlHigh;
-		rotlXLow = Uint32.rotlLow;
-		//ROTL(x,19)
-		Uint32.rotl(xHigh, xLow, (short)19);
-		//(ROTL(x,30)^ROTL(x,19)
-		Uint32.xor(rotlXHigh, rotlXLow, Uint32.rotlHigh, Uint32.rotlLow);
-		//ROTL(x,10)) 
-		Uint32.rotl(xHigh, xLow, (short)10);
-		Uint32.xor(
-				Uint32.xorHigh, Uint32.xorLow,
-				Uint32.rotlHigh,Uint32.rotlLow 
-				);
-		lSigma0High = Uint32.xorHigh;
-		lSigma0Low = Uint32.xorLow;
-	}
-	/*
-	 * lSigma_1 运算结果变量
-	 */
-	private static short lSigma1High;
-	private static short lSigma1Low;
-	private static void lSigma_1(short xHigh, short xLow) //LSigma_1(x) (ROTL(x,26)^ROTL(x,21)^ROTL(x,7))
-	{
-		short rotlXHigh, rotlXLow;
-		//(ROTL(x,26)
-		Uint32.rotl(xHigh, xLow, (short)26);
-		rotlXHigh = Uint32.rotlHigh;
-		rotlXLow = Uint32.rotlLow;
-		//ROTL(x,19)
-		Uint32.rotl(xHigh, xLow, (short)21);
-		//(ROTL(x,26)^ROTL(x,21)
-		Uint32.xor(rotlXHigh, rotlXLow, Uint32.rotlHigh, Uint32.rotlLow);
-		//ROTL(x,7)) 
-		Uint32.rotl(xHigh, xLow, (short)7);
-		//LSigma_1
-		Uint32.xor(
-				Uint32.xorHigh, Uint32.xorLow,
-				Uint32.rotlHigh,Uint32.rotlLow 
-				);
-		lSigma1High = Uint32.xorHigh;
-		lSigma1Low = Uint32.xorLow;
-	}
-	/*
-	 * sSigma_0 运算结果变量
-	 */
-	private static short sSigma0High;
-	private static short sSigma0Low;
-	private static void sSigma_0(short xHigh, short xLow)//SSigma_0(x) (ROTL(x,25)^ROTL(x,14)^SHR(x,3))
-	{
-		short rotlXHigh, rotlXLow;
-		//(ROTL(x,25)
-		Uint32.rotl(xHigh, xLow, (short)25);
-		rotlXHigh = Uint32.rotlHigh;
-		rotlXLow = Uint32.rotlLow;
-		//ROTL(x,14)
-		Uint32.rotl(xHigh, xLow, (short)14);
-		//(ROTL(x,25)^ROTL(x,14)
-		Uint32.xor(rotlXHigh, rotlXLow, Uint32.rotlHigh, Uint32.rotlLow);
-		//SHR(x,3)
-		Uint32.shr(xHigh, xLow, (short)3);
-		//sSigma_0
-		Uint32.xor(
-				Uint32.xorHigh, Uint32.xorLow,
-				Uint32.shrHigh,Uint32.shrLow 
-				);
-		sSigma0High = Uint32.xorHigh;
-		sSigma0Low = Uint32.xorLow;
-	}	
-	/*
-	 * sSigma_1 运算结果变量
-	 */
-	private static short sSigma1High;
-	private static short sSigma1Low;
-	private static void sSigma_1(short xHigh, short xLow)//SSigma_1(x) (ROTL(x,15)^ROTL(x,13)^SHR(x,10))
-	{
-		short rotlXHigh, rotlXLow;
-		//(ROTL(x,15)
-		Uint32.rotl(xHigh, xLow, (short)15);
-		rotlXHigh = Uint32.rotlHigh;
-		rotlXLow = Uint32.rotlLow;
-		//ROTL(x,13)
-		Uint32.rotl(xHigh, xLow, (short)13);
-		//(ROTL(x,25)^ROTL(x,14)
-		Uint32.xor(rotlXHigh, rotlXLow, Uint32.rotlHigh, Uint32.rotlLow);
-		//SHR(x,10)
-		Uint32.shr(xHigh, xLow, (short)10);
-		//sSigma_1
-		Uint32.xor(
-				Uint32.xorHigh, Uint32.xorLow,
-				Uint32.shrHigh,Uint32.shrLow 
-				);
-		sSigma1High = Uint32.xorHigh;
-		sSigma1Low = Uint32.xorLow;
-	} 
-	/*
-	 * @brief:将MessageDigest存放在byte数组中
-	 * @param: buffer 存放摘要的数组
-	 * @param: offset 存放摘要的起始位置
-	 */
-	public static void getByteDigest(byte[] buffer, short offset)
-	{
-		short i;
-		for(i = 0; i < 8; i++)
-		{
-			buffer[offset + 4*i] = (byte)(digestHigh[i]>>8);
-			buffer[offset + 4*i+1] = (byte)(digestHigh[i]&0xFF);
-			buffer[offset + 4*i+2] = (byte)(digestLow[i]>>8);
-			buffer[offset + 4*i+3] = (byte)(digestLow[i]&0xFF); 
-		}
-	} 
+//	 int repeat_num=1;//groups
+//	 byte[] msg_binary;
+//	 byte[]Buffer str2=new byte[]Buffer();
+//	 
+//	 byte[] H0="6a09e667";
+//	 byte[] H1="bb67ae85";
+//	 byte[] H2="3c6ef372";
+//	 byte[] H3="a54ff53a";
+//	 byte[] H4="510e527f";
+//	 byte[] H5="9b05688c";
+//	 byte[] H6="1f83d9ab";
+//	 byte[] H7="5be0cd19";
+//	 byte[] A,B,C,D,E,F,G,H;
+//	 
+//	 byte[] output = "";
+//	 BufferedReader br;
+//	 long begin;
+//	 long end;
+//	 
+//	 byte[][] k=new byte[][64];
+//	 
+//	 byte[][] K=
+//	   {"428a2f98","71374491","b5c0fbcf","e9b5dba5","3956c25b","59f111f1","923f82a4","ab1c5ed5",
+//		"d807aa98","12835b01","243185be","550c7dc3","72be5d74","80deb1fe","9bdc06a7","c19bf174",
+//		"e49b69c1","efbe4786","0fc19dc6","240ca1cc","2de92c6f","4a7484aa","5cb0a9dc","76f988da",
+//		"983e5152","a831c66d","b00327c8","bf597fc7","c6e00bf3","d5a79147","06ca6351","14292967",
+//		"27b70a85","2e1b2138","4d2c6dfc","53380d13","650a7354","766a0abb","81c2c92e","92722c85",
+//		"a2bfe8a1","a81a664b","c24b8b70","c76c51a3","d192e819","d6990624","f40e3585","106aa070",
+//		"19a4c116","1e376c08","2748774c","34b0bcb5","391c0cb3","4ed8aa4a","5b9cca4f","682e6ff3",
+//		"748f82ee","78a5636f","84c87814","8cc70208","90befffa","a4506ceb","bef9a3f7","c67178f2"};
+//	 
+//	 byte[] [] w=new byte[][80];
+//
+//	 
+//	public SHA256(byte[] msg) {
+//
+//		for(int i=0;i<64;i++)
+//			k[i]=hexToBi(K[i]);
+//
+//		msg_binary=byte[]ToBinary(msg);
+//		final int LENGTH=msg_binary.length();
+//	
+//		
+//	if(LENGTH<448)
+//		repeat_num=1;
+//	else if(LENGTH>=448&&LENGTH<=512)
+//		repeat_num=2;
+//	else {
+//		if(LENGTH%512<448)
+//			repeat_num=LENGTH/512+1;
+//		else
+//			repeat_num=LENGTH/512+2;
+//	}
+//	
+//	char[] cw=new char[512*repeat_num];
+//	
+//	for(int i=0;i<LENGTH;i++) {//placing bits
+//		cw[i]=msg_binary.charAt(i);
+//	}
+//	
+//	byte[] str1=new byte[](Integer.toBinarybyte[](LENGTH));
+//	
+//	if(LENGTH<448) {
+//		cw[LENGTH]='1';
+//		for(int i=LENGTH+1;i<512*repeat_num-str1.length();i++) {
+//			cw[i]='0';
+//		}
+//		for(int i=512*repeat_num-str1.length();i<512*repeat_num;i++) {
+//			cw[i]=str1.charAt(i-512*repeat_num+str1.length());
+//		}
+//	}
+//	if(LENGTH>=448&&LENGTH<=512) {
+//		cw[LENGTH]='1';
+//		for(int i=LENGTH+1;i<512*repeat_num-str1.length();i++) {
+//			cw[i]='0';
+//		}
+//		for(int i=512*repeat_num-str1.length();i<512*repeat_num;i++) {
+//			cw[i]=str1.charAt(i-512*repeat_num+str1.length());
+//		}
+//	}
+//	if(LENGTH>512) {
+//		 cw[LENGTH]='1';
+//		for(int i=LENGTH+1;i<512*repeat_num-str1.length();i++) {
+//			cw[i]='0';
+//		}
+//		for(int i=512*repeat_num-str1.length();i<512*repeat_num;i++) {
+//			cw[i]=str1.charAt(i-512*repeat_num+str1.length());
+//		}
+//	}
+//	
+//	str2=str2.delete(0,str2.length());//delete str2=null;
+//	for(int i=0;i<512*repeat_num;i++) {
+//		str2=str2.append(cw[i]);
+//	}
+//
+//		
+//	for(int n=0;n<repeat_num;n++){
+//		//w[0] to w[80]
+//		byte[] str3=new byte[]();//store 512 bits of each group
+//		str3=str2.subbyte[](n*512,(n+1)*512).tobyte[]();//get 512 bits from each group
+//		
+//		for(int i=0;i<16;i++) 
+//		{
+//			w[i]=str3.subbyte[](i*32,(i+1)*32);
+//		}
+//		
+//		for(int i=16;i<64;i++) 
+//		{
+//			w[i]=Add(Add(smallSigmaOne(w[i-2]),w[i-7]),Add(smallSigmaZero(w[i-15]),w[i-16]));
+//		}
+//		A=new byte[](hexToBi(H0));
+//		B=new byte[](hexToBi(H1));
+//		C=new byte[](hexToBi(H2));
+//		D=new byte[](hexToBi(H3));
+//		E=new byte[](hexToBi(H4));
+//		F=new byte[](hexToBi(H5));
+//		G=new byte[](hexToBi(H6));
+//		H=new byte[](hexToBi(H7));
+//		SHA_256(A,B,C,D,E,F,G,H);
+//	}
+//	}
+//	
+//	public byte[] getHash()
+//	{
+//		output = H0+H1+H2+H3+H4+H5+H6+H7;
+//		return output.toUpperCase();
+//	}
+//	
+//	//Calculating A,B,C,D,E,F,G,H
+//
+//	
+//	
+//	public  byte[] byte[]ToBinary(byte[] str) {
+//		byte[]Buffer str2=new byte[]Buffer();
+//	for(int i=0;i<str.length();i++) {
+//		str2=str2.append(fillZero(Integer.toBinarybyte[](Integer.valueOf(str.charAt(i))),8));
+//	}
+//	return str2.tobyte[]();
+//	}
+//	
+//	public  byte[] fillZero(byte[] str,int n) {
+//		byte[] str2=new byte[]();
+//		byte[]Buffer str1=new byte[]Buffer();
+//		
+//		if(str.length()<n)
+//			for(int i=0;i<n-str.length();i++) {
+//			str2=str1.append('0').tobyte[]();
+//		}
+//		return str2+str;
+//		}
+//	
+//	//different OR
+//	public  byte[] bit_df_or(byte[] str1,byte[] str2) {
+//		byte[] str=new byte[]();
+//		byte[]Buffer s=new byte[]Buffer();
+//		for(int i=0;i<str1.length();i++) {
+//			if(str1.charAt(i)==str2.charAt(i))
+//				str=s.append('0').tobyte[]();
+//			else
+//				str=s.append('1').tobyte[]();
+//		}
+//		return str;
+//	}
+//	//same OR
+//	public  byte[] bit_sa_or(byte[] str1,byte[] str2) {
+//		byte[] str=new byte[]();
+//		byte[]Buffer s=new byte[]Buffer();
+//		for(int i=0;i<str1.length();i++) {
+//			if(str1.charAt(i)==str2.charAt(i))
+//				str=s.append('1').tobyte[]();
+//			else
+//				str=s.append('0').tobyte[]();
+//		}
+//		return str;
+//	}
+//	//AND
+//	public  byte[] and(byte[] str1,byte[] str2) {
+//		byte[] str=new byte[]();
+//		byte[]Buffer s=new byte[]Buffer();
+//		for(int i=0;i<str1.length();i++) {
+//			if(str1.charAt(i)=='0'||str2.charAt(i)=='0')
+//				str=s.append('0').tobyte[]();
+//			else
+//				str=s.append('1').tobyte[]();
+//		}
+//		return str;
+//	}
+//	//OR
+//	public  byte[] bit_or(byte[] str1,byte[] str2) {
+//		byte[] str=new byte[]();
+//		byte[]Buffer s=new byte[]Buffer();
+//		for(int i=0;i<str1.length();i++) {
+//			if(str1.charAt(i)=='1'||str2.charAt(i)=='1')
+//				str=s.append('1').tobyte[]();
+//			else
+//				str=s.append('0').tobyte[]();
+//		}
+//		return str;
+//	}
+//	//NOT
+//	public  byte[] not(byte[] str1) {
+//		byte[] str=new byte[]();
+//		byte[]Buffer s=new byte[]Buffer();
+//		for(int i=0;i<str1.length();i++) {
+//			if(str1.charAt(i)=='0')
+//				str=s.append('1').tobyte[]();
+//			else
+//				str=s.append('0').tobyte[]();
+//		}
+//		return str;
+//	}
+//
+//	public  void SHA_256(byte[] A,byte[] B,byte[] C,byte[] D,byte[] E,byte[] F,byte[] G,byte[] H) {
+//		byte[] temp1=new byte[]();
+//		byte[] temp2=new byte[]();
+//		
+//		for(int i=0;i<64;i++) {
+//			temp1=T1(H,E,ch(E,F,G),w[i],k[i]);
+//			temp2=Add(temp1,T2(A,maj(A,B,C)));
+//			H=G;
+//			G=F;
+//			F=E;
+//			E=Add(D,temp1);
+//			D=C;
+//			C=B;
+//			B=A;
+//			A=temp2;
+//		}
+//		
+//		H0=biToHex(Add(A,hexToBi(H0)));
+//		H1=biToHex(Add(B,hexToBi(H1)));
+//		H2=biToHex(Add(C,hexToBi(H2)));
+//		H3=biToHex(Add(D,hexToBi(H3)));
+//		H4=biToHex(Add(E,hexToBi(H4)));
+//		H5=biToHex(Add(F,hexToBi(H5)));
+//		H6=biToHex(Add(G,hexToBi(H6)));
+//		H7=biToHex(Add(H,hexToBi(H7)));
+//	
+//	}
+//	
+//	//rotate left n bits
+//	public  byte[] rotl(byte[] str,int n) {
+//		return str.subbyte[](0,n)+str.subbyte[](n);
+//	}
+//	//rotate right n bits
+//	public  byte[] rotr(byte[] str,int n) {
+//		return str.subbyte[](str.length()-n)+str.subbyte[](0,str.length()-n);
+//	}
+//	
+//	//right shift n bits
+//	public  byte[] shr(byte[] str,int n) {
+//		char[] fillZero=new char[n];
+//		for(int i =0; i<fillZero.length;i++)
+//			fillZero[i] = '0';
+//		byte[] str1=str.subbyte[](0,str.length()-n);
+//		return new byte[](fillZero)+str1;
+//	}
+//
+//	//ADD
+//	public  byte[] Add(byte[] str1,byte[] str2) {
+//		char[] cArray=new char[32];
+//		int flag=0;
+//		for(int i=str1.length()-1;i>=0;i--) {
+//			cArray[i]=(char)(((str1.charAt(i)-'0')+((str2.charAt(i)-'0'))+flag)%2+'0');
+//			if(((str1.charAt(i)-'0')+(str2.charAt(i)-'0')+flag)>=2)
+//				flag=1;
+//			else
+//				flag=0;
+//		}
+//		return new byte[](cArray);
+//	}
+//	
+//	public  byte[] ch(byte[] str1,byte[] str2,byte[] str3) {
+//		return bit_df_or(and(str1,str2),and(not(str1),str3));
+//	}
+//	
+//	public  byte[] maj(byte[] str1,byte[] str2,byte[] str3) {
+//		return bit_df_or(bit_df_or(and(str1,str2),and(str1,str3)),and(str2,str3));
+//	}
+//	
+//	public  byte[] smallSigmaZero(byte[] str1) {
+//		return bit_df_or(bit_df_or(rotr(str1,7),rotr(str1,18)),shr(str1,3));
+//	}
+//
+//	public  byte[] smallSigmaOne(byte[] str1) {
+//		return bit_df_or(bit_df_or(rotr(str1,17),rotr(str1,19)),shr(str1,10));
+//	}
+//	
+//	public  byte[] bigSigmaZero(byte[] str1) {
+//		return bit_df_or(bit_df_or(rotr(str1,2),rotr(str1,13)),rotr(str1,22));
+//	}
+//	
+//	public  byte[] bigSigmaOne(byte[] str1) {
+//		return bit_df_or(bit_df_or(rotr(str1,6),rotr(str1,11)),rotr(str1,25));
+//	}
+//
+//	public  byte[] biToHex(byte[] str) {
+//		int temp=0;
+//		byte[]Buffer st=new byte[]Buffer();
+//		
+//		for(int i=0;i<str.length()/4;i++) {
+//			temp=Integer.valueOf(str.subbyte[](i*4,(i+1)*4),2);
+//			st=st.append(Integer.toHexbyte[](temp));
+//		}
+//		return st.tobyte[]();
+//	}
+//
+//	public  byte[] hexToBi(byte[] str) {
+//		byte[] temp= "";
+//		byte[] st= "";
+//		
+//		for(int i=0;i<str.length();i++){
+//			switch(str.charAt(i)) {
+//				case '0':st="0000";break;
+//				case '1':st="0001";break;
+//				case '2':st="0010";break;
+//				case '3':st="0011";break;
+//				case '4':st="0100";break;
+//				case '5':st="0101";break;
+//				case '6':st="0110";break;
+//				case '7':st="0111";break;
+//				case '8':st="1000";break;
+//				case '9':st="1001";break;
+//				case 'a':st="1010";break;
+//				case 'b':st="1011";break;
+//				case 'c':st="1100";break;
+//				case 'd':st="1101";break;
+//				case 'e':st="1110";break;
+//				case 'f':st="1111";break;
+//				}
+//		temp=temp + st;
+//	}
+//	return temp.tobyte[]();
+//	}
+//	
+//	//find T1
+//	public  byte[] T1(byte[] str_h,byte[] str_e,byte[] str_ch,byte[] str_w,byte[] str_k) {
+//		return Add(Add(Add(str_h,bigSigmaOne(str_e)),Add(str_ch,str_w)),str_k);
+//	}
+//	//find T2
+//	public  byte[] T2(byte[] str_a,byte[] str_maj) {
+//		return Add(bigSigmaZero(str_a),str_maj);
+//	}
+//	public static void main(byte[][] args) {
+//		SHA256 sha256 = new SHA256("a");
+//		System.out.println(sha256.getHash());
+//	}
 }
+
+
+
+

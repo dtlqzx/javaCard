@@ -1,5 +1,5 @@
 /**
- *
+ * 
  */
 package Blockchain;
 
@@ -16,15 +16,20 @@ import javacard.security.*;
  *
  */
 public class Blockchain extends Applet {
+	final static short SW_MINUS_LEVEL = 0x6500;
+	final static short SW_MAX_LEVEL = 0x6600;
+	final static short SW_MAX_VALUE = 0x6700;
+	final static byte MAXLEVEL = 0x10;
+	final static short MAXVALUE = 1000;
 	private byte[] stuNum = {0x32,0x30,0x31,0x35,0x32,0x31,0x31,0x30,0x32,0x31};//2015211021
-	private byte[] gb2312 = {(byte)0x04,(byte) 0xD5,(byte) 0xC5,(byte)0xEA,(byte)0xBF};//ÈïøÂ∫¶0x04,Âº†Êòï--D5C5 EABF
+	private byte[] gb2312 = {(byte)0x04,(byte) 0xD5,(byte) 0xC5,(byte)0xEA,(byte)0xBF};//≥§∂»0x04,’≈Íø--D5C5 EABF
 	private static MessageDigest messageDigest;
 	public static void install(byte[] bArray, short bOffset, byte bLength) {
 		// GP-compliant JavaCard applet registration
 		new Blockchain().register(bArray, (short) (bOffset + 1),
 				bArray[bOffset]);
 		messageDigest = MessageDigest.getInstance(MessageDigest.ALG_SHA, true);
-
+		
 	}
 
 	public void process(APDU apdu) {
@@ -35,7 +40,7 @@ public class Blockchain extends Applet {
 
 		byte[] buf = apdu.getBuffer();
 		switch (buf[ISO7816.OFFSET_INS]) {
-		case (byte) 0x81://‰ΩøÁî®10‰∏™Â≠óËäÇASCIIÁ†ÅË°®Á§∫Â≠¶Âè∑//send 80810000000a
+		case (byte) 0x81:// π”√10∏ˆ◊÷Ω⁄ASCII¬Î±Ì æ—ß∫≈//send 80810000000a
 		{
 			byte[] buffer=apdu.getBuffer();
 			short le=apdu.setOutgoing();
@@ -55,7 +60,7 @@ public class Blockchain extends Applet {
 			apdu.sendBytes((short)0,(short)10);
 			break;
 		}
-		case (byte) 0x82://‰ΩøÁî®GB2312ÁºñÁ†ÅËøîÂõûLVÊñπÂºè//send 80820000007f
+		case (byte) 0x82:// π”√GB2312±‡¬Î∑µªÿLV∑Ω Ω//send 80820000007f
 		{
 			byte[] buffer_82=apdu.getBuffer();
 			short le_82=apdu.setOutgoing();
@@ -76,9 +81,20 @@ public class Blockchain extends Applet {
 			byte Level = buffer_83[ISO7816.OFFSET_P1];
 			byte DataOffset = ISO7816.OFFSET_CDATA;
 			byte DataLength = buffer_83[4];
-
+			
+			//check if Level < 0
+			if(Level < (byte)0)
+			{
+				ISOException.throwIt(SW_MINUS_LEVEL);
+			}
+			//check if Levcl >= MAXLEVEL
+			if(Level > MAXLEVEL)
+			{
+				ISOException.throwIt(SW_MAX_LEVEL);
+			}
+			
 			byte[] result = mineBlock(Level, buffer_83, DataOffset, DataLength);
-
+			
 			//set output mode
 			for(short i = 0; i < result.length; i++)
 			{
@@ -89,44 +105,14 @@ public class Blockchain extends Applet {
 			apdu.sendBytes((short)0,(short)result.length);
 			break;
 		}
-		case (byte) 0x84://debug
-		{
-			//send 80840000206162636462636465636465666465666765666768666768696768696a68696a6b7f
-			//the input of  Ripemd160 must be 32 bytes
-
-			byte[] buffer_84=apdu.getBuffer();
-			short le_84=apdu.setOutgoing();
-
-
-			byte[] debugBuffer = new byte[buffer_84[4]];
-			byte[] debugResult = new byte[20];
-			byte[] AddrResult;
-
-			for(short i = 0;i < buffer_84[4]; i++)
-			{
-				debugBuffer[i] = buffer_84[(short)5 + i];
-			}
-
-			Ripemd160.hash32(debugBuffer, (short)0, debugResult, (short)0, new byte[64], (short)0);
-
-			byte resultLen = (byte)(debugResult).length;
-			apdu.setOutgoingLength(resultLen);
-			for(short i = 0; i < resultLen; i++)
-			{
-				buffer_84[i]  = debugResult[i];
-			}
-			apdu.sendBytes((short)0,(short)resultLen);
-			break;
-
-		}
-		case (byte) 0x85://send
+		case (byte) 0x84://send 80850000568656c6c6f7f
 		{
 			byte[] buffer_85=apdu.getBuffer();
 			byte DataOffset = ISO7816.OFFSET_CDATA;
 			byte DataLength = buffer_85[4];
-
+			
 			byte[] result = generateAddr(buffer_85, DataOffset, DataLength);
-
+			
 			//set output mode
 			short resultLen = (short)(result).length;
 			for(short i = 0; i < resultLen; i++)
@@ -137,9 +123,38 @@ public class Blockchain extends Applet {
 			apdu.setOutgoingLength(resultLen);
 			apdu.sendBytes((short)0,resultLen);
 			break;
-
+			
 		}
+		case (byte) 0x85://debug		
+		{
+			//send 80840000206162636462636465636465666465666765666768666768696768696a68696a6b7f
+			//the input of  Ripemd160 must be 32 bytes
+			
+			byte[] buffer_84=apdu.getBuffer();
+			short le_84=apdu.setOutgoing();
+			
+			
+			byte[] debugBuffer = new byte[buffer_84[4]];
+			byte[] debugResult = new byte[20];
+			byte[] AddrResult;
 
+			for(short i = 0;i < buffer_84[4]; i++)
+			{
+				debugBuffer[i] = buffer_84[(short)5 + i];
+			}
+			
+			Ripemd160.hash32(debugBuffer, (short)0, debugResult, (short)0, new byte[64], (short)0);
+			
+			byte resultLen = (byte)(debugResult).length;
+			apdu.setOutgoingLength(resultLen);
+			for(short i = 0; i < resultLen; i++)
+			{
+				buffer_84[i]  = debugResult[i];
+			}
+			apdu.sendBytes((short)0,(short)resultLen);
+			break;
+			
+		}		
 		default:
 			// good practice: If you don't know the INStruction, say so:
 			ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -152,13 +167,14 @@ public class Blockchain extends Applet {
 		byte[] SHA_result = new byte[20];
 		byte level_h = 0;
 		byte level_l = 0;
-		boolean rightHash = false;
+		boolean rightHash = false; 
 		boolean rightHashHigh = true;
 		boolean rightHashLow = true;
-
-
+		byte[] rand_Hash = new byte[22];
+		
 		byte[] debugBuffer = new byte[dataLen];
 		byte[] debugResult;
+		
 
 		//copy data to data_rand
 		for(short i = 0;i < dataLen; i++)
@@ -168,7 +184,7 @@ public class Blockchain extends Applet {
 		//try SHA_256 and increase rand
 		level_h = (byte) (Level >>> 3);
 		level_l = (byte) (Level &   7);
-		while(rand <= (short)32767 && !rightHash)
+		while(rand <= MAXVALUE && !rightHash)
 		{
 			rightHashHigh = true;
 			rightHashLow = true;
@@ -176,11 +192,11 @@ public class Blockchain extends Applet {
 			rand = (short) (rand + (short)1);
 			data_rand[0 + dataLen]=(byte)(rand>>8);
 			data_rand[1 + dataLen]=(byte)(rand&0xff);
-
+			
 			//try SHA_256
 			SHA_256(data_rand,(short)(dataLen+2),SHA_result);
 
-			//judge
+			//judge 
 			for(byte cnt = 0;cnt < level_h && rightHashHigh;cnt++)
 			{
 				if(SHA_result[cnt] == 0x00)
@@ -188,68 +204,88 @@ public class Blockchain extends Applet {
 				else
 				{rightHashHigh = false;}
 			}
-
+			
 			if((SHA_result[level_h] >>> (8-level_l)) == (byte)0)
 			{rightHashLow = true;}
 			else
 			{rightHashLow =false;}
-
+			
 			rightHash = rightHashHigh && rightHashLow;
 		}
-		if(rand <= (short)32767)
+		if(rand <= MAXVALUE)//rightHash
 		{
 			//success
-			return data_rand;
+			rand_Hash[0] = (byte)(rand>>8);
+			rand_Hash[1] = (byte)(rand&0xff);
+			for(byte i = 0;i < 20;i++)
+			{
+				rand_Hash[i + 2] =  SHA_result[i];
+			}
+			return rand_Hash;
 		}
 		else//rightHash
 		{
+			ISOException.throwIt(SW_MAX_VALUE);
 			return null;
 			// lose
 		}
-
+		
 	}
 	private static byte[] generateAddr(byte[] data, short offset, short dataLen)
 	{
 		byte[] SHA_In = new byte[dataLen];
 		byte[] SHA_Result = new byte[20];
-		byte[] SHA2RIP = new byte[32];
-		byte[] RIP_Result = new byte[20];
+		byte[] SHA2RIP = new byte[32];	
+		byte[] RIP_Result = new byte[25];
+//		byte[] RIP_Result_version = new byte[21];
 		byte[] Base58_Result;
 
 		for(short i = 0;i < dataLen; i++)
 		{
 			SHA_In[i] = data[offset + i];
 		}
-		SHA_256(SHA_In,(short)(dataLen),SHA_Result);//1.SHA_256(data)
-
+		//1.SHA_256(data)
+		SHA_256(SHA_In,(short)(dataLen),SHA_Result);
+		
 		for(byte i = 0; i < 32;i++)//exchange SHA_Result to a byte[32]
 		{
 			if(i < 20){SHA2RIP[i] = SHA_Result[i];}
 			else{SHA2RIP[i] = 0;}
 		}
 		//2.Ripemd160(SHA_256_result)
-		Ripemd160.hash32(SHA2RIP, (short)0, RIP_Result, (short)0, new byte[64], (short)0);
+		RIP_Result[0] = 0x00;
+		
+		Ripemd160.hash32(SHA2RIP, (short)0, RIP_Result, (short)1, new byte[64], (short)0);
+		
+		SHA_256(RIP_Result,(short)(21),SHA_Result);
+		SHA_256(SHA_Result,(short)(20),SHA_Result);
+		
+		RIP_Result[21] = SHA_Result[0];
+		RIP_Result[22] = SHA_Result[1];
+		RIP_Result[23] = SHA_Result[2];
+		RIP_Result[24] = SHA_Result[3];
+		
 		//3.Base58(Ripemd160_result)
-		Base58_Result = Byte58Check(RIP_Result,(byte)20);
+		Base58_Result = Byte58Check(RIP_Result,(byte)25);
 		return Base58_Result;
 	}
 
 	private static void SHA_256(byte[] data, short dataLen,byte[] SHA_result)
 	{
-		messageDigest.doFinal(data, (short)0, dataLen, SHA_result, (short)0);
+		messageDigest.doFinal(data, (short)0, dataLen, SHA_result, (short)0);  
 	}
 	private static byte[] Byte58Check(byte[] data, byte dataLen)
 	{
 		byte[] result = Base58.encode(data);
 		return result;
 	}
-
-
-
-
-
-
-
-
-
+	
+	
+	
+	
+	
+	
+	
+	
+	
 }
